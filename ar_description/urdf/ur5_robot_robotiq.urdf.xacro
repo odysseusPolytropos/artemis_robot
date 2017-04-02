@@ -1,0 +1,85 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="ur5_robot_robotiq_model">
+  
+  <xacro:include filename="$(find ur_description)/urdf/ur5.urdf.xacro" />
+  <xacro:include filename="$(find ur_description)/urdf/ur.transmission.xacro" />
+  
+  <!-- This URDF xacro already contains the transmission for control of the gripper -->
+  <xacro:include filename="$(find robotiq_85_description)/urdf/robotiq_85_gripper.urdf.xacro" />
+      
+  <!-- root link -->
+  <link name="world" />
+  <xacro:include filename="$(find jaco_on_table)/urdf/objects/table.xacro" />
+
+  <joint name="world_joint" type="fixed">
+    <parent link="world" />
+    <child link="table_base" />
+    <origin xyz="0.0 0.0 0.3" rpy="0 0 0" />
+  </joint>  
+
+  <!-- robot arm ur5 -->
+  <xacro:ur5_robot prefix="" joint_limited="true"/>
+
+  <joint name="table_to_arm" type="fixed">
+    <origin xyz="0.0 0.0 0.0" rpy="0 0 -0.785398" />
+    <parent link="tabletop_corner"/>
+    <child link="base_link"/>
+  </joint>
+
+  <!-- robotiq_gripper (with transmission) -->
+  <xacro:robotiq_85_gripper prefix="" parent="tool0" >
+    <origin xyz="0.0 0.0 0.0" rpy="0.0 ${- pi / 2} 0.0" />
+  </xacro:robotiq_85_gripper>
+
+  <!-- transmission is needed to link actuators to the robots joints -->
+  <xacro:ur_arm_transmission prefix="" />
+  <xacro:ur_arm_gazebo prefix="" />
+      
+  <physics type="ode"> 
+    <gravity>0 0 -9.8</gravity> 
+    <ode> 
+      <solver> 
+        <type>quick</type> 
+        <iters>500</iters> 
+        <precon_iters>0</precon_iters> 
+        <sor>1.300000</sor> 
+      </solver> 
+      <constraints> 
+        <cfm>0.000000</cfm> 
+        <erp>0.200000</erp> 
+        <contact_max_correcting_vel>100.000000</contact_max_correcting_vel> 
+        <contact_surface_layer>0.001000</contact_surface_layer> 
+      </constraints> 
+    </ode> 
+  </physics> 
+  
+  <!-- we need this to control objects in gazebo from outside -->
+  <gazebo>
+    <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so"> 
+      <robotNamespace>/</robotNamespace>
+    </plugin> 
+    
+    <plugin name="gazebo_grasp_fix" filename="libgazebo_grasp_fix.so">
+    <!--
+        NOTE: The finger tips are linked together with the links before, because they are connected with a
+    fixed joint. Gazebo makes one whole link out of this automatically. When listing the 9_*_tip links
+    here, they won't be found in the SDF.
+        -->
+      <arm>
+          <arm_name>gripper</arm_name>
+          <!-- <palm_link>robotiq_85_base_link</palm_link> -->
+          <palm_link>robotiq_85_left_finger_tip_link</palm_link>
+          <gripper_link>robotiq_85_left_finger_tip_link</gripper_link>
+          <gripper_link>robotiq_85_right_finger_tip_link</gripper_link>
+      </arm>
+      <forces_angle_tolerance>100</forces_angle_tolerance>
+      <update_rate>16</update_rate>
+      <grip_count_threshold>4</grip_count_threshold>
+      <max_grip_count>20</max_grip_count>
+      <release_tolerance>0.01</release_tolerance>
+      <disable_collisions_on_attach>false</disable_collisions_on_attach>
+      <contact_topic>__default_topic__</contact_topic>
+    </plugin>
+    
+  </gazebo>
+</robot>

@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="ar_grasp" type="ar_grasp_test.py" name="ar_grasp_test_node" output="screen"/>
+</launch>

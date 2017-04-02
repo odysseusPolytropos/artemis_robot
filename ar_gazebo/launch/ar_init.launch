@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+
+    <!-- ROS Driver, Robot State Publisher, and sensors -->
+    <node pkg="si_utils" type="timed_roslaunch"
+        args="1 ar_gazebo ar_on_table.launch"
+        name="ar_gazebo_bringup" output="screen"/>
+        
+    <!-- MoveIt! configuration -->
+    <node pkg="si_utils" type="timed_roslaunch"
+        args="8 ar_moveit_config ar_moveit_planning_execution.launch sim:=true"
+        name="ar_moveit_bringup" output="screen"/>
+
+</launch>

@@ -1,0 +1,10 @@
+moveit_setup_assistant_config:
+  URDF:
+    package: ar_description
+    relative_path: urdf/ur5_robot_robotiq.urdf.xacro
+  SRDF:
+    relative_path: config/ur5_robot_robotiq_model.srdf
+  CONFIG:
+    author_name: Immanuel Loewenstein
+    author_email: emanus90@justmail.de
+    generated_timestamp: 1490885393

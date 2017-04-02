@@ -1,0 +1,18 @@
+<launch>
+  <arg name="sim" default="true" />
+  <arg name="limited" default="false"/>
+  <arg name="debug" default="false" />
+    
+  <!-- Remap follow_joint_trajectory -->
+  <remap if="$(arg sim)" from="gripper/follow_joint_trajectory_gripper" to="/gripper/follow_joint_trajectory"/>
+  <remap if="$(arg sim)" from="arm/follow_joint_trajectory" to="/arm_controller/follow_joint_trajectory"/>
+  
+
+  <!-- Launch moveit -->
+  <include file="$(find ar_moveit_config)/launch/move_group.launch">
+    <arg name="debug" default="$(arg debug)" />
+  </include>
+
+   # The visualization component of MoveIt!
+  <!-- <include file="$(find ar_moveit_config)/launch/moveit_rviz.launch"/>-->
+</launch>
