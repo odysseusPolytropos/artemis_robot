@@ -94,7 +94,6 @@ def calc_pregrasp_pose(box_pose, box_dimensions):
         yaw += pi/2.0
     
     target_pose.pose.position.z = target_pose.pose.position.z + box_dimensions[2]/2.0 + PRE_GRASP_Z_DIST
-    print target_pose.pose.position.z
     
     orient = tf.transformations.quaternion_from_euler(0.0, pi/2.0, yaw)
     target_pose.pose.orientation.x = orient[0]
@@ -204,9 +203,9 @@ def ar_grasp_test(name):
     close_gripper()
     try:
         rospy.wait_for_message("/gripper_feedback", GraspedObject, timeout=10)
-        gripper.stop()
     except:
         pass
+    gripper.stop()
     
     rospy.sleep(2)
     
