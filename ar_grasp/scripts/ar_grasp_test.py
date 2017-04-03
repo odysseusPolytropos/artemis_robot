@@ -157,8 +157,10 @@ def init_robot():
     # Allow replanning to increase the odds of a solution
     ur5_arm.allow_replanning(True)
     # Allow some leeway in position (meters) and orientation (radians)
-    ur5_arm.set_goal_position_tolerance(0.01)
-    ur5_arm.set_goal_orientation_tolerance(0.05)
+    ur5_arm.set_goal_position_tolerance(0.02)
+    ur5_arm.set_goal_orientation_tolerance(0.1)
+    
+    ur5_arm.set_planning_time(5)
     
 
 def ar_grasp_test(name):
