@@ -23,18 +23,24 @@ GRASP_Z_DELTA = -0.075 # [m]
 DESTINATION_Z = 0.10 # [m]
 # between 0 and 1, a too fast gripper results in numerical problems
 GRIPPER_VELOCITY_SCALING_FACTOR = 0.04 # [-]
+# maximmum numer of grasping attempts
+MAX_GRASP_ATTEMPTS = 2
+
 
 def get_object_info(name):
     rospy.wait_for_service('/gazebo_objects/get_info')
     try:
         object_info = rospy.ServiceProxy('/gazebo_objects/get_info', ObjectInfo)
         resp = object_info(name, True) # [name, return_geometry]
-        return resp
+        box_pose = resp.object.primitive_poses[0]
+        box_dimensions = resp.object.primitives[0].dimensions
+        return resp, box_pose, box_dimensions
     except rospy.ServiceException, e:
         print "Service call failed: %s"%e
         sys.exit(1)
 
 def move_cartesian(group, waypoints):
+    print "==================== starting cartesian movement"
     fraction = 0.0
     maxtries = 100
     attempts = 0
@@ -64,9 +70,11 @@ def move_cartesian(group, waypoints):
         group.execute(plan)
 
         rospy.loginfo("Path execution complete.")
+        return True
     else:
         rospy.loginfo("Path planning failed with only " +
     str(fraction) + " success after " + str(maxtries) + " attempts.")
+        return False
 
 def pose2rpy(pose):
     quaternions = (
@@ -81,7 +89,7 @@ def pose2rpy(pose):
     yaw = euler[2]
     return roll, pitch, yaw
 
-def calc_pregrasp_pose(box_pose, box_dimensions):
+def calc_pregrasp_pose(box_pose, box_dimensions, attempt=1):
     target_pose = geometry_msgs.msg.PoseStamped()
     target_pose.header.frame_id = "/world"
     target_pose.header.stamp = rospy.Time.now()
@@ -91,6 +99,9 @@ def calc_pregrasp_pose(box_pose, box_dimensions):
     roll, pitch, yaw = pose2rpy(box_pose)
     
     if box_dimensions[0] > box_dimensions[1]:
+        yaw += pi/2.0
+        
+    if attempt > 1:
         yaw += pi/2.0
     
     target_pose.pose.position.z = target_pose.pose.position.z + box_dimensions[2]/2.0 + PRE_GRASP_Z_DIST
@@ -127,8 +138,10 @@ def home_pos():
     ur5_arm.go()
 
 def callback(data):
-    global gripper
-    print "STOPPING GRIPPER"
+    global gripper, successful_grasp
+    if not successful_grasp:
+        print  "==================== GRASPED OBJECT"
+        successful_grasp = True
     gripper.stop()
 
 def init_robot():
@@ -162,29 +175,10 @@ def init_robot():
     ur5_arm.set_planning_time(5)
     
 
-def ar_grasp_test(name):
-    global gripper, ur5_arm, robot, scene
-    
-    
-    init_robot()
-
-    rospy.Subscriber("/gripper_feedback", GraspedObject, callback)
-
-    open_gripper()
-    home_pos()
-       
-    object_info = get_object_info(name)
-    
+def move_trajectory(target_pose):
+    global ur5_arm
     # Get the name of the end-effector link
     end_effector_link = ur5_arm.get_end_effector_link()
-
-
-    #Move the end effecor to the x , y, z positon
-    #Set the target pose in the base_link frame    
-    box_pose = object_info.object.primitive_poses[0]
-    box_dimensions = object_info.object.primitives[0].dimensions
-    target_pose = calc_pregrasp_pose(box_pose, box_dimensions)
-        
     # Set the start state to the current state
     ur5_arm.set_start_state_to_current_state()
     # Set the goal pose of the end effector to the stored pose
@@ -192,13 +186,35 @@ def ar_grasp_test(name):
     # Plan the trajectory to the goal
     traj = ur5_arm.plan()
     # Execute the planned trajectory
-    ur5_arm.execute(traj)
+    success = ur5_arm.execute(traj)
     # Pause for a second
     rospy.sleep(1)
-
-    target_pose.pose.position.z = target_pose.pose.position.z + GRASP_Z_DELTA
     
-    move_cartesian(ur5_arm, [target_pose.pose])
+    return success
+
+def ar_grasp_test(name):
+    global gripper, ur5_arm, robot, scene, successful_grasp
+    
+    successful_grasp = False
+    
+    init_robot()
+
+    rospy.Subscriber("/gripper_feedback", GraspedObject, callback)
+
+    open_gripper()
+    home_pos()
+    
+    attempt = 1
+    while attempt <= MAX_GRASP_ATTEMPTS:
+        print "==================== GRASP ATTEMPT #"+str(attempt)
+        object_info, box_pose, box_dimensions = get_object_info(name)
+
+        target_pose = calc_pregrasp_pose(box_pose, box_dimensions, attempt)            
+        if move_trajectory(target_pose):
+            target_pose.pose.position.z = target_pose.pose.position.z + GRASP_Z_DELTA
+            if move_cartesian(ur5_arm, [target_pose.pose]):
+                break
+        attempt = attempt + 1 
     
     close_gripper()
     try:
@@ -211,13 +227,9 @@ def ar_grasp_test(name):
     
     # drive 10 cm up
     target_pose.pose.position.z = target_pose.pose.position.z + DESTINATION_Z
-    ur5_arm.set_pose_target(target_pose, end_effector_link)
-
-    ur5_arm.set_max_velocity_scaling_factor(0.1)
-    traj = ur5_arm.plan()
-
-    ur5_arm.execute(traj)
     
+    move_cartesian(ur5_arm, [target_pose.pose])
+     
     ## When finished shut down moveit_commander.
     moveit_commander.roscpp_shutdown()
     moveit_commander.os._exit(0)        
